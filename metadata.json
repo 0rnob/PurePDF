@@ -1,0 +1,5 @@
+{
+  "name": "PurePDF",
+  "description": "A web-based application offering a suite of tools to manage and manipulate PDF files, similar to ilovepdf.com. This initial version focuses on merging multiple PDF files into one, with an AI-powered feature to suggest a new filename.",
+  "requestFramePermissions": []
+}
