@@ -1,12 +1,16 @@
 import * as contentful from 'contentful';
 
-// IMPORTANT: These should be set as environment variables in your hosting provider.
-// Do not commit them directly into your code. The component using this client
-// will handle errors if these are not configured.
-const SPACE_ID = process.env.CONTENTFUL_SPACE_ID || '';
-const ACCESS_TOKEN = process.env.CONTENTFUL_ACCESS_TOKEN || '';
+// We get the credentials from environment variables.
+const SPACE_ID = process.env.CONTENTFUL_SPACE_ID;
+const ACCESS_TOKEN = process.env.CONTENTFUL_ACCESS_TOKEN;
 
-export const contentfulClient = contentful.createClient({
-  space: SPACE_ID,
-  accessToken: ACCESS_TOKEN,
-});
+// We only create a client if both credentials are provided.
+// This prevents the application from crashing on startup if the blog
+// feature is not configured. The BlogPage component will handle the
+// case where the client is null.
+export const contentfulClient = (SPACE_ID && ACCESS_TOKEN)
+  ? contentful.createClient({
+      space: SPACE_ID,
+      accessToken: ACCESS_TOKEN,
+    })
+  : null;

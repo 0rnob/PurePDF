@@ -37,6 +37,12 @@ const BlogPage: React.FC<BlogPageProps> = ({ onGoBack }) => {
 
   useEffect(() => {
     const fetchPosts = async () => {
+      if (!contentfulClient) {
+        setError('Could not connect to Contentful. Please ensure your Space ID and Access Token are correctly configured as environment variables.');
+        setLoading(false);
+        return;
+      }
+      
       try {
         const response = await contentfulClient.getEntries({
           content_type: 'blogPost',
@@ -57,7 +63,7 @@ const BlogPage: React.FC<BlogPageProps> = ({ onGoBack }) => {
         setPosts(fetchedPosts as Post[]);
       } catch (err: any) {
         if (err.message && (err.message.includes('accessToken') || err.message.includes('space'))) {
-            setError('Could not connect to Contentful. Please ensure your Space ID and Access Token are correctly configured as environment variables.');
+            setError('Could not connect to Contentful. Please check that your Space ID and Access Token are correct.');
         } else {
             setError(err.message || 'An unexpected error occurred while fetching posts.');
         }
