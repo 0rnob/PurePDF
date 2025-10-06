@@ -270,6 +270,19 @@ export const cropPdf = async (file: File, cropValues: { top: number, bottom: num
 };
 
 /**
+ * "Compresses" a PDF by re-saving it with object streams.
+ * This can reduce file size by optimizing the PDF structure, but does not re-compress images.
+ * @param file The source PDF file.
+ * @returns A Promise that resolves with a Uint8Array of the compressed PDF.
+ */
+export const compressPdf = async (file: File): Promise<Uint8Array> => {
+    const pdfDoc = await getPdfDoc(file);
+    
+    // Using object streams can help reduce file size by grouping objects.
+    return await pdfDoc.save({ useObjectStreams: true });
+};
+
+/**
  * Renders all pages of a PDF to image data URLs.
  * @param file The PDF file.
  * @returns An array of data URLs for each page.

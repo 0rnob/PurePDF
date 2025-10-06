@@ -15,6 +15,7 @@ import {
     PdfToPowerpointIcon,
     PdfToExcelIcon,
     CropIcon,
+    UnlockIcon,
 } from './components/icons';
 import type { Tool } from './types';
 
@@ -76,6 +77,14 @@ export const TOOLS: Tool[] = [
     category: 'Edit PDF',
   },
   {
+    id: 'unlock-pdf',
+    title: 'Unlock PDF',
+    description: 'Remove password security from a PDF file.',
+    icon: UnlockIcon,
+    color: 'text-red-500',
+    category: 'Edit PDF',
+  },
+  {
     id: 'image-to-pdf',
     title: 'Image to PDF',
     description: 'Convert JPG, PNG, and other images to PDF.',
@@ -98,7 +107,7 @@ export const TOOLS: Tool[] = [
     icon: CompressIcon,
     color: 'text-green-500',
     category: 'Optimize PDF',
-    disabled: true,
+    
   },
   {
     id: 'word-to-pdf',

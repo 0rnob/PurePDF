@@ -1,23 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { contentfulClient } from '../services/contentfulService';
-
-// Define the Post type for type safety
-interface Post {
-  title: string;
-  description: string;
-  author: string;
-  date: string;
-}
+import React, { useEffect } from 'react';
+import type { Post } from '../types';
 
 interface BlogPageProps {
   onGoBack: () => void;
+  posts: Post[];
+  isLoading: boolean;
+  onSelectPost: (postId: string) => void;
 }
 
-const BlogPage: React.FC<BlogPageProps> = ({ onGoBack }) => {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-
+const BlogPage: React.FC<BlogPageProps> = ({ onGoBack, posts, isLoading, onSelectPost }) => {
   useEffect(() => {
     document.title = 'PurePDF Blog | Tips & Tricks for PDF Management';
 
@@ -35,61 +26,11 @@ const BlogPage: React.FC<BlogPageProps> = ({ onGoBack }) => {
     setMetaTag('keywords', 'PDF tips, PDF tricks, document management, PDF productivity, PDF help, PurePDF blog');
   }, []);
 
-  useEffect(() => {
-    const fetchPosts = async () => {
-      if (!contentfulClient) {
-        setError('Could not connect to Contentful. Please ensure your Space ID and Access Token are correctly configured as environment variables.');
-        setLoading(false);
-        return;
-      }
-      
-      try {
-        const response = await contentfulClient.getEntries({
-          content_type: 'blogPost',
-          order: ['-fields.date'],
-        });
-
-        const fetchedPosts = response.items.map((item: any) => ({
-          title: item.fields.title,
-          description: item.fields.description,
-          author: item.fields.author,
-          date: new Date(item.fields.date).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-          }),
-        }));
-
-        setPosts(fetchedPosts as Post[]);
-      } catch (err: any) {
-        if (err.message && (err.message.includes('accessToken') || err.message.includes('space'))) {
-            setError('Could not connect to Contentful. Please check that your Space ID and Access Token are correct.');
-        } else {
-            setError(err.message || 'An unexpected error occurred while fetching posts.');
-        }
-        console.error("Error fetching blog posts from Contentful:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPosts();
-  }, []);
-
   const renderContent = () => {
-    if (loading) {
+    if (isLoading) {
       return (
         <div className="text-center py-16 text-slate-500">
           <p className="text-lg">Loading posts...</p>
-        </div>
-      );
-    }
-
-    if (error) {
-      return (
-        <div className="mt-6 p-6 bg-red-100 border border-red-400 text-red-700 rounded-md text-left">
-          <p className="font-bold text-lg">Could not load blog posts</p>
-          <p className="mt-2">{error}</p>
         </div>
       );
     }
@@ -98,17 +39,16 @@ const BlogPage: React.FC<BlogPageProps> = ({ onGoBack }) => {
       return (
         <div className="text-center py-16 text-slate-500">
           <p className="text-lg">No blog posts found.</p>
-           <p className="text-sm">Make sure you have published posts in Contentful under the 'blogPost' content type.</p>
         </div>
       );
     }
 
     return (
       <div className="space-y-8">
-        {posts.map((post, index) => (
-          <div key={index} className="bg-[#F8FAFC] p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
+        {posts.map((post) => (
+          <div key={post.id} onClick={() => onSelectPost(post.id)} className="bg-[#F8FAFC] p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 cursor-pointer">
             <h2 className="text-2xl font-bold text-slate-800">{post.title}</h2>
-            <p className="text-slate-500 mt-2">{post.description}</p>
+            <p className="text-slate-500 mt-2 line-clamp-3">{post.description}</p>
             <div className="mt-4 text-sm text-slate-400">
               <span>By {post.author}</span> &middot; <span>{post.date}</span>
             </div>

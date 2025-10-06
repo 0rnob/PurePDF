@@ -95,7 +95,9 @@ const OrganizePdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool
     setError(null);
     try {
       const newOrder = pages.map(p => p.originalIndex);
-      const rotations = new Map(pages.filter(p => p.rotation !== 0).map(p => [p.originalIndex, p.rotation]));
+      // FIX: Explicitly providing type arguments to the Map constructor prevents type inference issues
+      // when the filtered array is empty, which could lead to a Map<unknown, unknown> type.
+      const rotations = new Map<number, number>(pages.filter(p => p.rotation !== 0).map(p => [p.originalIndex, p.rotation]));
       const organizedBytes = await organizePdf(file, newOrder, rotations);
       const blob = new Blob([organizedBytes], { type: 'application/pdf' });
       triggerDownload(URL.createObjectURL(blob), `${file.name.replace(/\.pdf$/i, '')}_organized.pdf`);
