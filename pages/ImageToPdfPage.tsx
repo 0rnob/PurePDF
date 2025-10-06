@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { imagesToPdf } from '../services/pdfService';
 import type { Tool } from '../types';
+import { updateMetaTags } from '../utils/seo';
 
 interface ImageFile {
   id: string;
@@ -22,9 +23,46 @@ const ImageToPdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool,
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [outputFilename, setOutputFilename] = useState('converted.pdf');
+  const [processedFileUrl, setProcessedFileUrl] = useState<string | null>(null);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  useEffect(() => {
+    const pageUrl = `${window.location.origin}/${tool.id}`;
+    updateMetaTags({
+        title: 'Image to PDF Converter | Convert JPG to PDF Online - PurePDF',
+        description: 'Convert JPG, PNG, and other images to PDF files for free. Combine multiple images into a single PDF document easily.',
+        keywords: 'image to pdf, jpg to pdf, png to pdf, convert image to pdf',
+        canonicalUrl: pageUrl,
+        jsonLd: {
+            "@context": "https://schema.org",
+            "@type": "HowTo",
+            "name": "How to Convert Images to PDF",
+            "description": "Combine multiple JPG or PNG images into a single PDF file.",
+            "step": [
+                {
+                    "@type": "HowToStep",
+                    "name": "Select Images",
+                    "text": "Upload your JPG or PNG files by dragging them into the drop zone or using the select button.",
+                    "url": pageUrl,
+                },
+                {
+                    "@type": "HowToStep",
+                    "name": "Order Images",
+                    "text": "Drag and drop the image thumbnails to arrange them in the order you want them to appear in the PDF.",
+                    "url": pageUrl,
+                },
+                {
+                    "@type": "HowToStep",
+                    "name": "Convert and Download",
+                    "text": "Click 'Convert to PDF' to process your images and download the resulting PDF file.",
+                    "url": pageUrl,
+                }
+            ]
+        }
+    });
+  }, [tool.id]);
   
   const processFiles = (incomingFiles: File[]) => {
     setError(null);
@@ -42,12 +80,14 @@ const ImageToPdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool,
     }
   };
 
-  // Clean up object URLs when the component unmounts
   useEffect(() => {
     return () => {
       files.forEach(file => URL.revokeObjectURL(file.previewUrl));
+      if (processedFileUrl) {
+        URL.revokeObjectURL(processedFileUrl);
+      }
     };
-  }, [files]);
+  }, [files, processedFileUrl]);
 
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -86,7 +126,6 @@ const ImageToPdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool,
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   };
 
   const handleConvert = async () => {
@@ -102,6 +141,7 @@ const ImageToPdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool,
       const pdfBytes = await imagesToPdf(fileObjects);
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
+      setProcessedFileUrl(url);
       triggerDownload(url, outputFilename);
     } catch (e) {
       console.error(e);
@@ -109,6 +149,13 @@ const ImageToPdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool,
     } finally {
       setIsProcessing(false);
     }
+  };
+  
+  const handleStartOver = () => {
+    setFiles([]);
+    setProcessedFileUrl(null);
+    setError(null);
+    setOutputFilename('converted.pdf');
   };
   
   // Drag and Drop reordering logic
@@ -128,10 +175,6 @@ const ImageToPdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool,
   };
   const onDragEnd = () => setDraggedItemId(null);
   const handleRemoveFile = (id: string) => {
-    const fileToRemove = files.find(f => f.id === id);
-    if (fileToRemove) {
-      URL.revokeObjectURL(fileToRemove.previewUrl);
-    }
     setFiles(files.filter(f => f.id !== id));
   };
 
@@ -159,83 +202,112 @@ const ImageToPdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool,
                 <p className="mt-1 text-sm text-slate-500">This may take a few moments.</p>
             </div>
         )}
-        <div
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          className={`border-2 border-dashed rounded-xl p-8 text-center bg-[#F8FAFC] transition-colors ${isDraggingOver ? 'border-indigo-500 bg-indigo-50' : 'border-slate-300'}`}
-        >
-          {isDraggingOver ? (
-            <div className="flex flex-col items-center justify-center pointer-events-none">
-              <svg className="w-16 h-16 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-              </svg>
-              <p className="text-lg font-semibold text-indigo-600 mt-2">Drop files to upload</p>
+        {!processedFileUrl ? (
+          <>
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-xl p-8 text-center bg-[#F8FAFC] transition-colors ${isDraggingOver ? 'border-indigo-500 bg-indigo-50' : 'border-slate-300'}`}
+            >
+              {isDraggingOver ? (
+                <div className="flex flex-col items-center justify-center pointer-events-none">
+                  <svg className="w-16 h-16 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                  </svg>
+                  <p className="text-lg font-semibold text-indigo-600 mt-2">Drop files to upload</p>
+                </div>
+              ) : (
+                <>
+                  <input type="file" multiple accept="image/jpeg, image/png" onChange={handleFileChange} ref={fileInputRef} className="hidden" />
+                  <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <p className="mt-2 text-sm text-slate-500">Drag & drop image files here</p>
+                  <button onClick={() => fileInputRef.current?.click()} className="mt-4 px-8 py-3 bg-indigo-500 text-white text-base font-semibold rounded-lg shadow-md hover:bg-indigo-600 transition-colors">
+                      Select Images
+                  </button>
+                </>
+              )}
             </div>
-           ) : (
-            <>
-              <input type="file" multiple accept="image/jpeg, image/png" onChange={handleFileChange} ref={fileInputRef} className="hidden" />
-              <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
-              <p className="mt-2 text-sm text-slate-500">Drag & drop image files here</p>
-              <button onClick={() => fileInputRef.current?.click()} className="mt-4 px-8 py-3 bg-indigo-500 text-white text-base font-semibold rounded-lg shadow-md hover:bg-indigo-600 transition-colors">
-                  Select Images
-              </button>
-            </>
-           )}
-        </div>
-        
-        {files.length > 0 && (
-          <div className="mt-8">
-            <h3 className="font-semibold">Files to convert ({files.length}):</h3>
-            <p className="text-sm text-slate-500 mb-4">Drag and drop files to change their order in the PDF.</p>
-            <div className="flex flex-wrap gap-4">
-              {files.map(imgFile => (
-                <div 
-                  key={imgFile.id} 
-                  draggable 
-                  onDragStart={(e) => onDragStart(e, imgFile.id)} 
-                  onDragOver={onDragOver} 
-                  onDrop={(e) => onDropReorder(e, imgFile.id)} 
-                  onDragEnd={onDragEnd} 
-                  className={`relative group w-36 bg-slate-100 rounded-lg shadow-sm overflow-hidden cursor-move transition-all ${draggedItemId === imgFile.id ? 'opacity-50 scale-95' : 'opacity-100'}`}
-                >
-                  <img src={imgFile.previewUrl} alt={imgFile.file.name} className="w-full h-36 object-cover" />
-                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-300" />
-                  <div className="absolute bottom-0 left-0 right-0 p-1 bg-black bg-opacity-60 text-white text-xs">
-                    <p className="truncate">{imgFile.file.name}</p>
-                    <p>{formatBytes(imgFile.file.size)}</p>
-                  </div>
-                  <button
-                    onClick={() => handleRemoveFile(imgFile.id)}
-                    className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center bg-black bg-opacity-60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
-                    aria-label="Remove file"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+            
+            {files.length > 0 && (
+              <div className="mt-8">
+                <h3 className="font-semibold">Files to convert ({files.length}):</h3>
+                <p className="text-sm text-slate-500 mb-4">Drag and drop files to change their order in the PDF.</p>
+                <div className="flex flex-wrap gap-4">
+                  {files.map(imgFile => (
+                    <div 
+                      key={imgFile.id} 
+                      draggable 
+                      onDragStart={(e) => onDragStart(e, imgFile.id)} 
+                      onDragOver={onDragOver} 
+                      onDrop={(e) => onDropReorder(e, imgFile.id)} 
+                      onDragEnd={onDragEnd} 
+                      className={`relative group w-36 bg-slate-100 rounded-lg shadow-sm overflow-hidden cursor-move transition-all ${draggedItemId === imgFile.id ? 'opacity-50 scale-95' : 'opacity-100'}`}
+                    >
+                      <img src={imgFile.previewUrl} alt={imgFile.file.name} className="w-full h-36 object-cover" />
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-300" />
+                      <div className="absolute bottom-0 left-0 right-0 p-1 bg-black bg-opacity-60 text-white text-xs">
+                        <p className="truncate">{imgFile.file.name}</p>
+                        <p>{formatBytes(imgFile.file.size)}</p>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveFile(imgFile.id)}
+                        className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center bg-black bg-opacity-60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
+                        aria-label="Remove file"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {files.length > 0 && (
+              <div className="mt-8 bg-[#F8FAFC] p-6 rounded-lg shadow-md">
+                <div>
+                  <label htmlFor="filename" className="block text-sm font-medium text-slate-700">Output filename</label>
+                  <input type="text" id="filename" value={outputFilename} onChange={(e) => setOutputFilename(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+                </div>
+                <div className="mt-6 text-center">
+                  <button onClick={handleConvert} disabled={isProcessing} className="w-full sm:w-auto px-12 py-3 bg-purple-500 text-white font-bold text-lg rounded-lg shadow-lg hover:bg-purple-600 transition-transform hover:scale-105 disabled:opacity-50">
+                    Convert to PDF
                   </button>
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
+            {error && <div className="mt-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-md">{error}</div>}
+          </>
+        ) : (
+          <div className="text-center p-8 bg-green-50 border border-green-200 rounded-xl">
+              <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-10 h-10 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-green-800 mt-4">Conversion Successful!</h2>
+              <p className="mt-2 text-green-600">Your PDF has been created and started downloading.</p>
+              <a
+                href={processedFileUrl}
+                download={outputFilename}
+                className="mt-6 inline-block px-8 py-3 bg-green-600 text-white font-bold text-base rounded-lg shadow-md hover:bg-green-700 transition-colors"
+              >
+                Download Again
+              </a>
+              <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
+                  <button onClick={handleStartOver} className="px-8 py-3 bg-purple-500 text-white text-base font-semibold rounded-lg shadow-md hover:bg-purple-600 transition-colors">
+                      Convert More Images
+                  </button>
+                  <button onClick={onGoBack} className="px-8 py-3 bg-slate-200 text-slate-700 text-base font-semibold rounded-lg shadow-md hover:bg-slate-300 transition-colors">
+                      Back to Home
+                  </button>
+              </div>
           </div>
         )}
-
-        {files.length > 0 && (
-           <div className="mt-8 bg-[#F8FAFC] p-6 rounded-lg shadow-md">
-            <div>
-              <label htmlFor="filename" className="block text-sm font-medium text-slate-700">Output filename</label>
-              <input type="text" id="filename" value={outputFilename} onChange={(e) => setOutputFilename(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
-            </div>
-            <div className="mt-6 text-center">
-              <button onClick={handleConvert} disabled={isProcessing} className="w-full sm:w-auto px-12 py-3 bg-purple-500 text-white font-bold text-lg rounded-lg shadow-lg hover:bg-purple-600 transition-transform hover:scale-105 disabled:opacity-50">
-                Convert to PDF
-              </button>
-            </div>
-           </div>
-        )}
-        {error && <div className="mt-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-md">{error}</div>}
       </div>
     </div>
   );

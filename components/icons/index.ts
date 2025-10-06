@@ -17,6 +17,7 @@ export { default as PowerpointToPdfIcon } from './PowerpointToPdfIcon';
 export { default as WatermarkIcon } from './WatermarkIcon';
 export { default as CropIcon } from './CropIcon';
 export { default as UnlockIcon } from './UnlockIcon';
+export { default as EditIcon } from './EditIcon';
 
 // Social Icons
 export { default as FacebookIcon } from './FacebookIcon';

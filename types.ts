@@ -31,4 +31,43 @@ export interface Post {
   description: string;
   author: string;
   date: string;
+  tags: string[];
 }
+
+// Types for Edit PDF feature
+export interface TextObject {
+  id: string;
+  type: 'text';
+  x: number;
+  y: number;
+  text: string;
+  fontSize: number;
+  color: string;
+  width: number; // For wrapping, etc.
+}
+
+export interface ImageObject {
+  id: string;
+  type: 'image';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  bytes: Uint8Array;
+  mimeType: 'image/jpeg' | 'image/png';
+}
+
+export interface ShapeObject {
+  id: string;
+  type: 'shape';
+  shape: 'rectangle';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  color: string;
+  fill: string;
+  strokeWidth: number;
+}
+
+export type EditObject = TextObject | ImageObject | ShapeObject;

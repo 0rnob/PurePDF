@@ -1,10 +1,10 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { mergePdfs } from '../services/pdfService';
 import { suggestFilename } from '../services/geminiService';
 import { MergeIcon } from '../components/icons';
 import type { Tool, PdfFile } from '../types';
+import { updateMetaTags } from '../utils/seo';
 
-// FIX: Define MergePdfPageProps interface
 interface MergePdfPageProps {
   tool: Tool;
   onGoBack: () => void;
@@ -30,6 +30,56 @@ const MergePdfPage: React.FC<MergePdfPageProps> = ({ tool, onGoBack }) => {
   const [isDraggingOver, setIsDraggingOver] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  useEffect(() => {
+    const pageUrl = `${window.location.origin}/${tool.id}`;
+    updateMetaTags({
+        title: 'Merge PDF | Combine PDF Files Online for Free - PurePDF',
+        description: 'Easily merge multiple PDF files into one single document online. Free, fast, and secure PDF combiner tool from PurePDF.',
+        keywords: 'merge pdf, combine pdf, join pdf, pdf merger, online pdf tool',
+        canonicalUrl: pageUrl,
+        jsonLd: {
+            "@context": "https://schema.org",
+            "@type": "HowTo",
+            "name": "How to Merge PDF Files",
+            "description": "Combine two or more PDF files into a single document using the PurePDF online tool.",
+            "step": [
+                {
+                    "@type": "HowToStep",
+                    "name": "Select Files",
+                    "text": "Click the 'Select PDF files' button or drag and drop your PDF files into the upload area.",
+                    "url": pageUrl,
+                },
+                {
+                    "@type": "HowToStep",
+                    "name": "Order Files",
+                    "text": "Drag and drop the file previews to arrange them in the desired order for the final document.",
+                    "url": pageUrl,
+                },
+                 {
+                    "@type": "HowToStep",
+                    "name": "Merge",
+                    "text": "Optionally, use the AI feature to suggest a filename. Then, click the 'Merge PDF' button to start the process.",
+                    "url": pageUrl,
+                },
+                {
+                    "@type": "HowToStep",
+                    "name": "Download",
+                    "text": "Your merged PDF will be created and automatically downloaded to your device.",
+                    "url": pageUrl,
+                }
+            ]
+        }
+    });
+}, [tool.id]);
+
+  useEffect(() => {
+    return () => {
+      if (mergedFileUrl) {
+        URL.revokeObjectURL(mergedFileUrl);
+      }
+    };
+  }, [mergedFileUrl]);
 
   const processFiles = (incomingFiles: File[]) => {
     setError(null);
@@ -61,7 +111,6 @@ const MergePdfPage: React.FC<MergePdfPageProps> = ({ tool, onGoBack }) => {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       processFiles(Array.from(event.target.files));
-      // Reset input value to allow selecting the same file again
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -174,6 +223,13 @@ const MergePdfPage: React.FC<MergePdfPageProps> = ({ tool, onGoBack }) => {
   const onDragEnd = () => {
     setDraggedItemId(null);
   }
+  
+  const handleStartOver = () => {
+    setFiles([]);
+    setMergedFileUrl(null);
+    setError(null);
+    setOutputFilename('merged.pdf');
+  };
 
   const FilePreview: React.FC<{ pdfFile: PdfFile }> = ({ pdfFile }) => (
     <div
@@ -229,108 +285,124 @@ const MergePdfPage: React.FC<MergePdfPageProps> = ({ tool, onGoBack }) => {
                 <p className="mt-1 text-sm text-slate-500">This may take a few moments for large files.</p>
             </div>
         )}
-        <div
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          className={`border-2 border-dashed rounded-xl p-8 text-center bg-[#F8FAFC] transition-colors ${isDraggingOver ? 'border-indigo-500 bg-indigo-50' : 'border-slate-300'}`}
-        >
-          {isDraggingOver ? (
-            <div className="flex flex-col items-center justify-center pointer-events-none">
-              <svg className="w-16 h-16 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-              </svg>
-              <p className="text-lg font-semibold text-indigo-600 mt-2">Drop files to upload</p>
-            </div>
-          ) : (
-            <>
-              <input
-                type="file"
-                multiple
-                accept=".pdf"
-                onChange={handleFileChange}
-                ref={fileInputRef}
-                className="hidden"
-              />
-              <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
-              <p className="mt-2 text-sm text-slate-500">Drag & drop PDF files here</p>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="mt-4 px-8 py-3 bg-indigo-500 text-white text-base font-semibold rounded-lg shadow-md hover:bg-indigo-600 transition-colors"
-              >
-                Select PDF files
-              </button>
-            </>
-          )}
-        </div>
-
-        {files.length > 0 && (
-          <div className="mt-8 space-y-2">
-            <h3 className="font-semibold">Files to merge ({files.length}):</h3>
-             <p className="text-sm text-slate-500">Drag and drop files to change their order.</p>
-            {files.map(pdfFile => <FilePreview key={pdfFile.id} pdfFile={pdfFile} />)}
-          </div>
-        )}
-
-        {files.length > 1 && !mergedFileUrl && (
-          <div className="mt-8 bg-[#F8FAFC] p-6 rounded-lg shadow-md">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-grow">
-                  <label htmlFor="filename" className="block text-sm font-medium text-slate-700">Output filename</label>
-                  <input
-                      type="text"
-                      id="filename"
-                      value={outputFilename}
-                      onChange={(e) => setOutputFilename(e.target.value)}
-                      className="mt-1 block w-full px-3 py-3 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  />
-              </div>
-              <div className="flex-shrink-0 self-end">
-                <button
-                  onClick={handleSuggestFilename}
-                  disabled={isSuggestingName}
-                  className="w-full sm:w-auto px-6 py-3 bg-amber-500 text-white font-semibold rounded-lg shadow-md hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-wait flex items-center justify-center text-base"
-                  >
-                  {isSuggestingName ? (
-                     <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                     </svg>
-                  ) : '✨ Suggest Name (AI)'}
-                 </button>
-              </div>
-            </div>
-            <div className="mt-6 text-center">
-              <button
-                onClick={handleMerge}
-                disabled={isMerging}
-                className="w-full sm:w-auto px-12 py-3 bg-indigo-500 text-white font-bold text-lg rounded-lg shadow-lg hover:bg-indigo-600 transition-transform hover:scale-105 disabled:opacity-50"
-              >
-                Merge PDF
-              </button>
-            </div>
-          </div>
-        )}
-
-        {error && (
-          <div className="mt-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-md">
-            {error}
-          </div>
-        )}
         
-        {mergedFileUrl && (
-          <div className="mt-8 text-center p-8 bg-green-50 border border-green-200 rounded-xl">
-            <h2 className="text-2xl font-bold text-green-800">Merge Successful!</h2>
-            <p className="mt-2 text-green-600">Your file has started downloading. If it doesn't, you can use the link below.</p>
+        {!mergedFileUrl ? (
+          <>
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-xl p-8 text-center bg-[#F8FAFC] transition-colors ${isDraggingOver ? 'border-indigo-500 bg-indigo-50' : 'border-slate-300'}`}
+            >
+              {isDraggingOver ? (
+                <div className="flex flex-col items-center justify-center pointer-events-none">
+                  <svg className="w-16 h-16 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                  </svg>
+                  <p className="text-lg font-semibold text-indigo-600 mt-2">Drop files to upload</p>
+                </div>
+              ) : (
+                <>
+                  <input
+                    type="file"
+                    multiple
+                    accept=".pdf"
+                    onChange={handleFileChange}
+                    ref={fileInputRef}
+                    className="hidden"
+                  />
+                  <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <p className="mt-2 text-sm text-slate-500">Drag & drop PDF files here</p>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="mt-4 px-8 py-3 bg-indigo-500 text-white text-base font-semibold rounded-lg shadow-md hover:bg-indigo-600 transition-colors"
+                  >
+                    Select PDF files
+                  </button>
+                </>
+              )}
+            </div>
+
+            {files.length > 0 && (
+              <div className="mt-8 space-y-2">
+                <h3 className="font-semibold">Files to merge ({files.length}):</h3>
+                 <p className="text-sm text-slate-500">Drag and drop files to change their order.</p>
+                {files.map(pdfFile => <FilePreview key={pdfFile.id} pdfFile={pdfFile} />)}
+              </div>
+            )}
+
+            {files.length > 1 && (
+              <div className="mt-8 bg-[#F8FAFC] p-6 rounded-lg shadow-md">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-grow">
+                      <label htmlFor="filename" className="block text-sm font-medium text-slate-700">Output filename</label>
+                      <input
+                          type="text"
+                          id="filename"
+                          value={outputFilename}
+                          onChange={(e) => setOutputFilename(e.target.value)}
+                          className="mt-1 block w-full px-3 py-3 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      />
+                  </div>
+                  <div className="flex-shrink-0 self-end">
+                    <button
+                      onClick={handleSuggestFilename}
+                      disabled={isSuggestingName}
+                      className="w-full sm:w-auto px-6 py-3 bg-amber-500 text-white font-semibold rounded-lg shadow-md hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-wait flex items-center justify-center text-base"
+                      >
+                      {isSuggestingName ? (
+                         <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                         </svg>
+                      ) : '✨ Suggest Name (AI)'}
+                     </button>
+                  </div>
+                </div>
+                <div className="mt-6 text-center">
+                  <button
+                    onClick={handleMerge}
+                    disabled={isMerging}
+                    className="w-full sm:w-auto px-12 py-3 bg-indigo-500 text-white font-bold text-lg rounded-lg shadow-lg hover:bg-indigo-600 transition-transform hover:scale-105 disabled:opacity-50"
+                  >
+                    Merge PDF
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {error && (
+              <div className="mt-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-md">
+                {error}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="text-center p-8 bg-green-50 border border-green-200 rounded-xl">
+            <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                <svg className="w-10 h-10 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-green-800 mt-4">Merge Successful!</h2>
+            <p className="mt-2 text-green-600">Your file has started downloading. You can download it again if needed.</p>
             <a
               href={mergedFileUrl}
               download={outputFilename}
-              className="mt-6 inline-block px-12 py-3 bg-green-600 text-white font-bold text-lg rounded-lg shadow-lg hover:bg-green-700 transition-transform hover:scale-105"
+              className="mt-6 inline-block px-8 py-3 bg-green-600 text-white font-bold text-base rounded-lg shadow-md hover:bg-green-700 transition-colors"
             >
               Download Again
             </a>
+            <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
+                <button onClick={handleStartOver} className="px-8 py-3 bg-indigo-500 text-white text-base font-semibold rounded-lg shadow-md hover:bg-indigo-600 transition-colors">
+                    Merge More PDFs
+                </button>
+                <button onClick={onGoBack} className="px-8 py-3 bg-slate-200 text-slate-700 text-base font-semibold rounded-lg shadow-md hover:bg-slate-300 transition-colors">
+                    Back to Home
+                </button>
+            </div>
           </div>
         )}
       </div>

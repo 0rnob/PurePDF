@@ -16,6 +16,7 @@ import {
     PdfToExcelIcon,
     CropIcon,
     UnlockIcon,
+    EditIcon, // Import new icon
 } from './components/icons';
 import type { Tool } from './types';
 
@@ -43,6 +44,14 @@ export const TOOLS: Tool[] = [
     icon: OrganizeIcon,
     color: 'text-cyan-500',
     category: 'Organize PDF',
+  },
+  {
+    id: 'edit-pdf',
+    title: 'Edit PDF',
+    description: 'Add text, shapes, and images to your PDF.',
+    icon: EditIcon,
+    color: 'text-teal-500',
+    category: 'Edit PDF',
   },
   {
     id: 'rotate-pdf',

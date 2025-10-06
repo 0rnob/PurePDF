@@ -11,6 +11,7 @@ import AddWatermarkPage from './pages/AddWatermarkPage';
 import CropPdfPage from './pages/CropPdfPage';
 import UnlockPdfPage from './pages/UnlockPdfPage';
 import CompressPdfPage from './pages/CompressPdfPage';
+import EditPdfPage from './pages/EditPdfPage';
 import BlogPage from './pages/BlogPage';
 import BlogPostPage from './pages/BlogPostPage';
 import Header from './components/Header';
@@ -62,6 +63,7 @@ const App: React.FC = () => {
   const handleSelectPost = (postId: string) => {
     setSelectedPostId(postId);
     setCurrentPage('blog-post');
+    window.scrollTo(0, 0);
   };
 
   const renderPage = () => {
@@ -91,6 +93,8 @@ const App: React.FC = () => {
             return <UnlockPdfPage tool={activeTool} onGoBack={handleGoHome} />;
           case 'compress-pdf':
             return <CompressPdfPage tool={activeTool} onGoBack={handleGoHome} />;
+          case 'edit-pdf':
+            return <EditPdfPage tool={activeTool} onGoBack={handleGoHome} />;
           default:
             return <HomePage posts={posts} onSelectTool={handleSelectTool} onGoToBlog={handleGoToBlog} onSelectPost={handleSelectPost} />;
         }
@@ -102,7 +106,7 @@ const App: React.FC = () => {
           // If post not found or loading, redirect to blog list
           return <BlogPage onGoBack={handleGoHome} posts={posts} isLoading={postsLoading} onSelectPost={handleSelectPost} />;
         }
-        return <BlogPostPage post={selectedPost} onGoBack={handleGoToBlog} />;
+        return <BlogPostPage post={selectedPost} allPosts={posts} onSelectPost={handleSelectPost} onGoBack={handleGoToBlog} />;
       case 'home':
       default:
         return <HomePage posts={posts} onSelectTool={handleSelectTool} onGoToBlog={handleGoToBlog} onSelectPost={handleSelectPost} />;

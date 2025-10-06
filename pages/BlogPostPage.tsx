@@ -1,20 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { Post } from '../types';
 import { FacebookIcon, TwitterIcon, LinkedInIcon } from '../components/icons';
 
 interface BlogPostPageProps {
   post: Post;
+  allPosts: Post[];
   onGoBack: () => void;
+  onSelectPost: (postId: string) => void;
 }
 
-const BlogPostPage: React.FC<BlogPostPageProps> = ({ post, onGoBack }) => {
+const BlogPostPage: React.FC<BlogPostPageProps> = ({ post, allPosts, onGoBack, onSelectPost }) => {
   const [showShareOptions, setShowShareOptions] = useState(false);
+
+  const relatedPosts = useMemo(() => {
+    if (!post.tags || post.tags.length === 0) {
+        return [];
+    }
+    return allPosts
+        .filter(p => p.id !== post.id) 
+        .map(p => {
+            const commonTags = p.tags.filter(tag => post.tags.includes(tag));
+            return { post: p, score: commonTags.length };
+        })
+        .filter(p => p.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3) 
+        .map(p => p.post);
+  }, [post, allPosts]);
 
   const handleShare = async () => {
     const shareData = {
       title: post.title,
       text: post.description.substring(0, 120) + '...',
-      url: window.location.href, // In a real app with routing, this would be the post's direct URL
+      url: window.location.href,
     };
 
     if (navigator.share && navigator.canShare(shareData)) {
@@ -24,7 +42,6 @@ const BlogPostPage: React.FC<BlogPostPageProps> = ({ post, onGoBack }) => {
         console.error('Error sharing:', err);
       }
     } else {
-      // Fallback for desktop browsers
       setShowShareOptions(prev => !prev);
     }
   };
@@ -100,6 +117,27 @@ const BlogPostPage: React.FC<BlogPostPageProps> = ({ post, onGoBack }) => {
             </div>
         </div>
       </article>
+
+      {relatedPosts.length > 0 && (
+          <div className="mt-16">
+            <h2 className="text-3xl font-extrabold text-slate-900 mb-6 text-center">You Might Also Like</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {relatedPosts.map(relatedPost => (
+                <div 
+                  key={relatedPost.id} 
+                  onClick={() => onSelectPost(relatedPost.id)} 
+                  className="bg-[#F8FAFC] p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 cursor-pointer flex flex-col"
+                >
+                  <h3 className="text-lg font-bold text-slate-800 line-clamp-3 flex-grow">{relatedPost.title}</h3>
+                  <div className="mt-4 pt-4 border-t border-slate-200 text-sm font-semibold text-indigo-600 hover:text-indigo-800 transition-colors">
+                      Read More &rarr;
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
       <style>{`
         .prose p { margin-bottom: 1em; }
         .prose strong { font-weight: 700; color: #1e293b; }

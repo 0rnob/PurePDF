@@ -2,6 +2,7 @@
 declare const PDFLib: any;
 declare const pdfjsLib: any;
 declare const JSZip: any;
+import type { EditObject } from '../types';
 
 /** Helper to ensure pdfjs worker is configured */
 const ensurePdfjsWorker = () => {
@@ -346,3 +347,64 @@ export const createZipFromImages = async (images: {name: string, data: string}[]
     }
     return await zip.generateAsync({ type: 'blob' });
 }
+
+/**
+ * Applies a comprehensive set of edits to a PDF.
+ * @param file The source PDF file.
+ * @param newOrder An array of the original 0-based page indices in the new desired order.
+ * @param rotations A map of original page index to its new rotation angle.
+ * @param edits A map of original page index to an array of EditObjects to be added.
+ * @returns The bytes of the newly edited PDF.
+ */
+export const applyEditsToPdf = async (
+    file: File,
+    newOrder: number[],
+    rotations: Map<number, number>,
+    edits: Map<number, EditObject[]>
+): Promise<Uint8Array> => {
+    const { PDFDocument, degrees, rgb, StandardFonts } = PDFLib;
+    const pdfDoc = await getPdfDoc(file);
+    const newPdfDoc = await PDFDocument.create();
+    const font = await newPdfDoc.embedFont(StandardFonts.Helvetica);
+
+    const copiedPages = await newPdfDoc.copyPages(pdfDoc, newOrder);
+
+    for (let i = 0; i < copiedPages.length; i++) {
+        const page = copiedPages[i];
+        const originalIndex = newOrder[i];
+        
+        // Apply rotation
+        const rotationAngle = rotations.get(originalIndex);
+        if (rotationAngle) {
+            page.setRotation(degrees(rotationAngle));
+        }
+        
+        const { width, height } = page.getSize();
+        
+        // Apply edits
+        const pageEdits = edits.get(originalIndex);
+        if (pageEdits) {
+            for (const edit of pageEdits) {
+                // pdf-lib origin is bottom-left, UI is top-left. Convert y-coordinate.
+                if (edit.type === 'text') {
+                    const y = height - edit.y - edit.fontSize;
+                    const color = { r: parseInt(edit.color.slice(1,3), 16)/255, g: parseInt(edit.color.slice(3,5), 16)/255, b: parseInt(edit.color.slice(5,7), 16)/255 };
+                    page.drawText(edit.text, { x: edit.x, y, font, size: edit.fontSize, color: rgb(color.r, color.g, color.b) });
+                } else if (edit.type === 'image') {
+                    const y = height - edit.y - edit.height;
+                    const image = edit.mimeType === 'image/png' ? await newPdfDoc.embedPng(edit.bytes) : await newPdfDoc.embedJpg(edit.bytes);
+                    page.drawImage(image, { x: edit.x, y, width: edit.width, height: edit.height });
+                } else if (edit.type === 'shape' && edit.shape === 'rectangle') {
+                    const y = height - edit.y - edit.height;
+                    const borderColor = { r: parseInt(edit.color.slice(1,3), 16)/255, g: parseInt(edit.color.slice(3,5), 16)/255, b: parseInt(edit.color.slice(5,7), 16)/255 };
+                    const fillColor = { r: parseInt(edit.fill.slice(1,3), 16)/255, g: parseInt(edit.fill.slice(3,5), 16)/255, b: parseInt(edit.fill.slice(5,7), 16)/255 };
+                    page.drawRectangle({ x: edit.x, y, width: edit.width, height: edit.height, borderColor: rgb(borderColor.r, borderColor.g, borderColor.b), color: rgb(fillColor.r, fillColor.g, fillColor.b), borderWidth: edit.strokeWidth });
+                }
+            }
+        }
+
+        newPdfDoc.addPage(page);
+    }
+    
+    return await newPdfDoc.save();
+};

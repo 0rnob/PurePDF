@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { renderPdfToImages, organizePdf } from '../services/pdfService';
 import type { Tool } from '../types';
+import { updateMetaTags } from '../utils/seo';
 
 interface Page {
   originalIndex: number;
@@ -15,9 +16,47 @@ const OrganizePdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [processedFileUrl, setProcessedFileUrl] = useState<string | null>(null);
+  const [outputFilename, setOutputFilename] = useState('');
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  useEffect(() => {
+    const pageUrl = `${window.location.origin}/${tool.id}`;
+    updateMetaTags({
+        title: 'Organize PDF | Reorder, Rotate, and Delete PDF Pages - PurePDF',
+        description: 'Visually reorder, rotate, and delete pages from your PDF file. A simple way to organize your PDF documents online for free.',
+        keywords: 'organize pdf, reorder pdf pages, delete pdf pages, sort pdf',
+        canonicalUrl: pageUrl,
+        jsonLd: {
+            "@context": "https://schema.org",
+            "@type": "HowTo",
+            "name": "How to Organize a PDF",
+            "description": "Visually re-arrange, rotate, and delete pages in a PDF document.",
+            "step": [
+                {
+                    "@type": "HowToStep",
+                    "name": "Upload PDF",
+                    "text": "Select the PDF file you wish to organize. The tool will generate a preview of all pages.",
+                    "url": pageUrl,
+                },
+                {
+                    "@type": "HowToStep",
+                    "name": "Reorder, Rotate, Delete",
+                    "text": "Drag and drop page thumbnails to change their order. Use the buttons on each page to rotate or delete it.",
+                    "url": pageUrl,
+                },
+                {
+                    "@type": "HowToStep",
+                    "name": "Save and Download",
+                    "text": "Click 'Save Organized PDF' to apply your changes and download the new file.",
+                    "url": pageUrl,
+                }
+            ]
+        }
+    });
+  }, [tool.id]);
 
   const processFile = useCallback(async (selectedFile: File | undefined) => {
     if (!selectedFile || !selectedFile.type.endsWith('pdf')) {
@@ -45,10 +84,13 @@ const OrganizePdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool
   }, []);
 
   useEffect(() => {
-    return () => { // Cleanup object URLs on unmount
+    return () => { 
       pages.forEach(p => URL.revokeObjectURL(p.imageUrl));
+      if (processedFileUrl) {
+        URL.revokeObjectURL(processedFileUrl);
+      }
     };
-  }, [pages]);
+  }, [pages, processedFileUrl]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     processFile(e.target.files?.[0]);
@@ -86,7 +128,6 @@ const OrganizePdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool
   const triggerDownload = (url: string, filename: string) => {
     const a = document.createElement('a'); a.href = url; a.download = filename;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   };
 
   const handleOrganize = async () => {
@@ -95,17 +136,27 @@ const OrganizePdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool
     setError(null);
     try {
       const newOrder = pages.map(p => p.originalIndex);
-      // FIX: Explicitly providing type arguments to the Map constructor prevents type inference issues
-      // when the filtered array is empty, which could lead to a Map<unknown, unknown> type.
       const rotations = new Map<number, number>(pages.filter(p => p.rotation !== 0).map(p => [p.originalIndex, p.rotation]));
       const organizedBytes = await organizePdf(file, newOrder, rotations);
       const blob = new Blob([organizedBytes], { type: 'application/pdf' });
-      triggerDownload(URL.createObjectURL(blob), `${file.name.replace(/\.pdf$/i, '')}_organized.pdf`);
+      const url = URL.createObjectURL(blob);
+      const filename = `${file.name.replace(/\.pdf$/i, '')}_organized.pdf`;
+      setProcessedFileUrl(url);
+      setOutputFilename(filename);
+      triggerDownload(url, filename);
     } catch (e: any) {
       setError(e.message || 'Failed to organize PDF.');
     } finally {
       setIsProcessing(false);
     }
+  };
+  
+  const handleStartOver = () => {
+    setFile(null);
+    setPages([]);
+    setProcessedFileUrl(null);
+    setOutputFilename('');
+    setError(null);
   };
 
   const showOverlay = isLoading || isProcessing;
@@ -127,7 +178,7 @@ const OrganizePdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool
       </div>
 
       <div className="mt-10 relative">
-        {showOverlay && (
+        {showOverlay && !processedFileUrl && (
           <div className="absolute inset-0 bg-slate-50/80 backdrop-blur-sm flex flex-col items-center justify-center z-50 rounded-xl min-h-[200px]">
             <svg className="animate-spin h-10 w-10 text-cyan-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -138,7 +189,7 @@ const OrganizePdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool
           </div>
         )}
 
-        {!file && (
+        {!file && !processedFileUrl && (
           <div onDragOver={e => {e.preventDefault(); setIsDraggingOver(true);}} onDragLeave={() => setIsDraggingOver(false)} onDrop={handleDrop} >
             <div className={`border-2 border-dashed rounded-xl p-8 text-center bg-[#F8FAFC] transition-colors ${isDraggingOver ? 'border-indigo-500 bg-indigo-50' : 'border-slate-300'}`}>
              {isDraggingOver ? (
@@ -160,7 +211,7 @@ const OrganizePdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool
           </div>
         )}
         
-        {pages.length > 0 && (
+        {pages.length > 0 && !processedFileUrl && (
           <>
           <div className="mt-8 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {pages.map((p, index) => (
@@ -181,6 +232,33 @@ const OrganizePdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool
               </button>
           </div>
           </>
+        )}
+        
+        {processedFileUrl && (
+            <div className="text-center p-8 bg-green-50 border border-green-200 rounded-xl">
+              <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-10 h-10 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-green-800 mt-4">Organize Successful!</h2>
+              <p className="mt-2 text-green-600">Your PDF has been reorganized and started downloading.</p>
+              <a
+                href={processedFileUrl}
+                download={outputFilename}
+                className="mt-6 inline-block px-8 py-3 bg-green-600 text-white font-bold text-base rounded-lg shadow-md hover:bg-green-700 transition-colors"
+              >
+                Download Again
+              </a>
+              <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
+                  <button onClick={handleStartOver} className="px-8 py-3 bg-cyan-500 text-white text-base font-semibold rounded-lg shadow-md hover:bg-cyan-600 transition-colors">
+                      Organize Another PDF
+                  </button>
+                  <button onClick={onGoBack} className="px-8 py-3 bg-slate-200 text-slate-700 text-base font-semibold rounded-lg shadow-md hover:bg-slate-300 transition-colors">
+                      Back to Home
+                  </button>
+              </div>
+          </div>
         )}
       </div>
 

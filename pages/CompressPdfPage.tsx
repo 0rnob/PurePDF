@@ -1,6 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { compressPdf } from '../services/pdfService';
 import type { Tool } from '../types';
+import { updateMetaTags } from '../utils/seo';
 
 const formatBytes = (bytes: number, decimals = 2) => {
   if (!+bytes) return '0 Bytes';
@@ -14,6 +15,8 @@ const formatBytes = (bytes: number, decimals = 2) => {
 interface SuccessInfo {
     originalSize: number;
     newSize: number;
+    url: string;
+    filename: string;
 }
 
 const CompressPdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool, onGoBack }) => {
@@ -23,6 +26,50 @@ const CompressPdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool
   const [successInfo, setSuccessInfo] = useState<SuccessInfo | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const pageUrl = `${window.location.origin}/${tool.id}`;
+    updateMetaTags({
+        title: 'Compress PDF | Reduce PDF File Size Online - PurePDF',
+        description: 'Reduce the file size of your PDF documents while maintaining the best possible quality. Free online PDF compressor for smaller, shareable files.',
+        keywords: 'compress pdf, reduce pdf size, pdf compressor, optimize pdf',
+        canonicalUrl: pageUrl,
+        jsonLd: {
+            "@context": "https://schema.org",
+            "@type": "HowTo",
+            "name": "How to Compress a PDF",
+            "description": "Reduce the file size of a PDF document for easier sharing and storage.",
+            "step": [
+                {
+                    "@type": "HowToStep",
+                    "name": "Select PDF",
+                    "text": "Upload the PDF file you want to compress.",
+                    "url": pageUrl,
+                },
+                {
+                    "@type": "HowToStep",
+                    "name": "Compress",
+                    "text": "Click the 'Compress PDF' button to begin the file size reduction process.",
+                    "url": pageUrl,
+                },
+                {
+                    "@type": "HowToStep",
+                    "name": "Download",
+                    "text": "Your smaller, compressed PDF will be automatically downloaded.",
+                    "url": pageUrl,
+                }
+            ]
+        }
+    });
+  }, [tool.id]);
+
+  useEffect(() => {
+    return () => {
+      if (successInfo?.url) {
+        URL.revokeObjectURL(successInfo.url);
+      }
+    };
+  }, [successInfo]);
 
   const processFile = (selectedFile: File | undefined) => {
     setError(null);
@@ -72,7 +119,6 @@ const CompressPdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   };
 
   const handleCompress = async () => {
@@ -92,9 +138,9 @@ const CompressPdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool
       
       const blob = new Blob([compressedPdfBytes], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
-      const originalName = file.name.replace(/\.pdf$/i, '');
-      triggerDownload(url, `${originalName}_compressed.pdf`);
-      setSuccessInfo({ originalSize, newSize });
+      const filename = `${file.name.replace(/\.pdf$/i, '')}_compressed.pdf`;
+      triggerDownload(url, filename);
+      setSuccessInfo({ originalSize, newSize, url, filename });
     } catch (e: any) {
       console.error(e);
       setError(e.message || 'An error occurred while compressing the PDF.');
@@ -102,19 +148,44 @@ const CompressPdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool
       setIsProcessing(false);
     }
   };
+  
+  const handleStartOver = () => {
+    setFile(null);
+    setSuccessInfo(null);
+    setError(null);
+  };
 
   const renderSuccessMessage = () => {
     if (!successInfo) return null;
-    const { originalSize, newSize } = successInfo;
+    const { originalSize, newSize, url, filename } = successInfo;
     const reduction = originalSize > 0 ? Math.round(((originalSize - newSize) / originalSize) * 100) : 0;
     
     return (
-        <div className="mt-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-md">
-            <p className="font-bold">Compression Successful!</p>
-            <p>Original size: {formatBytes(originalSize)}</p>
-            <p>New size: {formatBytes(newSize)}</p>
-            <p>You saved {formatBytes(originalSize - newSize)} ({reduction}% reduction).</p>
-            <p className="mt-2 text-sm">Your file has started downloading.</p>
+        <div className="text-center p-8 bg-green-50 border border-green-200 rounded-xl">
+            <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                <svg className="w-10 h-10 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-green-800 mt-4">Compression Successful!</h2>
+            <p className="mt-2 text-green-600">
+                Original: {formatBytes(originalSize)} | New: {formatBytes(newSize)} | Saved: {formatBytes(originalSize - newSize)} ({reduction}% reduction)
+            </p>
+            <a
+              href={url}
+              download={filename}
+              className="mt-6 inline-block px-8 py-3 bg-green-600 text-white font-bold text-base rounded-lg shadow-md hover:bg-green-700 transition-colors"
+            >
+              Download Again
+            </a>
+            <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
+                <button onClick={handleStartOver} className="px-8 py-3 bg-green-500 text-white text-base font-semibold rounded-lg shadow-md hover:bg-green-600 transition-colors">
+                    Compress Another PDF
+                </button>
+                <button onClick={onGoBack} className="px-8 py-3 bg-slate-200 text-slate-700 text-base font-semibold rounded-lg shadow-md hover:bg-slate-300 transition-colors">
+                    Back to Home
+                </button>
+            </div>
         </div>
     );
   }
@@ -143,43 +214,48 @@ const CompressPdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool
                 <p className="mt-1 text-sm text-slate-500">This may take a few moments.</p>
             </div>
         )}
-         <div
-           onDragOver={handleDragOver}
-           onDragLeave={handleDragLeave}
-           onDrop={handleDrop}
-           className={`border-2 border-dashed rounded-xl p-8 text-center bg-[#F8FAFC] transition-colors ${isDraggingOver ? 'border-indigo-500 bg-indigo-50' : 'border-slate-300'}`}
-         >
-          {isDraggingOver ? (
-            <div className="flex flex-col items-center justify-center pointer-events-none">
-              <svg className="w-16 h-16 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-              </svg>
-              <p className="text-lg font-semibold text-indigo-600 mt-2">Drop file to upload</p>
-            </div>
-           ) : (
+        {!successInfo ? (
             <>
-              <input type="file" accept=".pdf" onChange={handleFileChange} ref={fileInputRef} className="hidden" />
-              <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
-              <p className="mt-2 text-sm text-slate-500">Drag & drop PDF file here</p>
-              <button onClick={() => fileInputRef.current?.click()} className="mt-4 px-8 py-3 bg-indigo-500 text-white text-base font-semibold rounded-lg shadow-md hover:bg-indigo-600 transition-colors">
-                  Select PDF file
-              </button>
-              {file && <p className="mt-4 font-medium text-slate-700">Selected: {file.name} ({formatBytes(file.size)})</p>}
-            </>
-           )}
-        </div>
+                <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`border-2 border-dashed rounded-xl p-8 text-center bg-[#F8FAFC] transition-colors ${isDraggingOver ? 'border-indigo-500 bg-indigo-50' : 'border-slate-300'}`}
+                >
+                {isDraggingOver ? (
+                    <div className="flex flex-col items-center justify-center pointer-events-none">
+                    <svg className="w-16 h-16 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                    </svg>
+                    <p className="text-lg font-semibold text-indigo-600 mt-2">Drop file to upload</p>
+                    </div>
+                ) : (
+                    <>
+                    <input type="file" accept=".pdf" onChange={handleFileChange} ref={fileInputRef} className="hidden" />
+                    <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <p className="mt-2 text-sm text-slate-500">Drag & drop PDF file here</p>
+                    <button onClick={() => fileInputRef.current?.click()} className="mt-4 px-8 py-3 bg-indigo-500 text-white text-base font-semibold rounded-lg shadow-md hover:bg-indigo-600 transition-colors">
+                        Select PDF file
+                    </button>
+                    {file && <p className="mt-4 font-medium text-slate-700">Selected: {file.name} ({formatBytes(file.size)})</p>}
+                    </>
+                )}
+                </div>
 
-        {file && (
-          <div className="mt-8 text-center">
-              <button onClick={handleCompress} disabled={isProcessing} className="w-full sm:w-auto px-12 py-3 bg-green-500 text-white font-bold text-lg rounded-lg shadow-lg hover:bg-green-600 transition-transform hover:scale-105 disabled:opacity-50">
-                Compress PDF
-              </button>
-          </div>
+                {file && (
+                <div className="mt-8 text-center">
+                    <button onClick={handleCompress} disabled={isProcessing} className="w-full sm:w-auto px-12 py-3 bg-green-500 text-white font-bold text-lg rounded-lg shadow-lg hover:bg-green-600 transition-transform hover:scale-105 disabled:opacity-50">
+                        Compress PDF
+                    </button>
+                </div>
+                )}
+                {error && <div className="mt-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-md">{error}</div>}
+            </>
+        ) : (
+            renderSuccessMessage()
         )}
-        {error && <div className="mt-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-md">{error}</div>}
-        {renderSuccessMessage()}
       </div>
     </div>
   );

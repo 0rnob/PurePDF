@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ToolCard from '../components/ToolCard';
 import { TOOLS } from '../constants';
 import type { Tool, ToolCategory, Post } from '../types';
+import { updateMetaTags } from '../utils/seo';
 
 interface HomePageProps {
   onSelectTool: (tool: Tool) => void;
@@ -18,21 +19,27 @@ const HomePage: React.FC<HomePageProps> = ({ onSelectTool, onGoToBlog, onSelectP
   const blogPosts = posts.slice(0, 3); // Get latest 3
 
   useEffect(() => {
-    document.title = 'PurePDF | Free Online PDF Tools';
-
-    const setMetaTag = (name: string, content: string) => {
-      let element = document.querySelector(`meta[name="${name}"]`);
-      if (!element) {
-        element = document.createElement('meta');
-        element.setAttribute('name', name);
-        document.head.appendChild(element);
+    const BASE_URL = window.location.origin;
+    updateMetaTags({
+      title: 'PurePDF | Free Online PDF Tools',
+      description: 'Merge, split, compress, convert, rotate, and organize your PDF files with our suite of free, easy-to-use online tools. No login required, lifetime free.',
+      keywords: 'PDF tools, merge PDF, split PDF, compress PDF, convert PDF, rotate PDF, organize PDF, image to PDF, PDF to JPG, free PDF editor',
+      canonicalUrl: BASE_URL,
+      jsonLd: {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "PurePDF",
+        "url": BASE_URL,
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": `${BASE_URL}?q={search_term_string}`
+          },
+          "query-input": "required name=search_term_string"
+        }
       }
-      element.setAttribute('content', content);
-    };
-
-    setMetaTag('description', 'Merge, split, compress, convert, rotate, and organize your PDF files with our suite of free, easy-to-use online tools. No login required, lifetime free.');
-    setMetaTag('keywords', 'PDF tools, merge PDF, split PDF, compress PDF, convert PDF, rotate PDF, organize PDF, image to PDF, PDF to JPG, free PDF editor');
-  
+    });
   }, []);
 
 

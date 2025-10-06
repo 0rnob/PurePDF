@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { splitPdf } from '../services/pdfService';
 import { parsePageRanges } from '../utils/pageRangeParser';
 import type { Tool } from '../types';
+import { updateMetaTags } from '../utils/seo';
 
 const SplitPdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool, onGoBack }) => {
   const [file, setFile] = useState<File | null>(null);
@@ -12,6 +13,42 @@ const SplitPdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool, o
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  useEffect(() => {
+    const pageUrl = `${window.location.origin}/${tool.id}`;
+    updateMetaTags({
+        title: 'Split PDF | Extract Pages from PDFs Online - PurePDF',
+        description: 'Split a PDF file by page ranges or extract all pages into separate PDFs. Free and easy-to-use online PDF splitter.',
+        keywords: 'split pdf, extract pdf pages, pdf splitter, separate pdf pages',
+        canonicalUrl: pageUrl,
+        jsonLd: {
+            "@context": "https://schema.org",
+            "@type": "HowTo",
+            "name": "How to Split a PDF File",
+            "description": "Extract specific pages or save every page as a separate document from a PDF file.",
+            "step": [
+                {
+                    "@type": "HowToStep",
+                    "name": "Select File",
+                    "text": "Upload your PDF file by dragging it into the drop zone or using the select button.",
+                    "url": pageUrl,
+                },
+                {
+                    "@type": "HowToStep",
+                    "name": "Choose Split Mode",
+                    "text": "Select either 'Extract pages' to get a single PDF with specific pages, or 'Split into single pages' to get a separate PDF for every page.",
+                    "url": pageUrl,
+                },
+                {
+                    "@type": "HowToStep",
+                    "name": "Split and Download",
+                    "text": "If extracting, enter the page range. Then click 'Split PDF' to process and download your new files.",
+                    "url": pageUrl,
+                }
+            ]
+        }
+    });
+  }, [tool.id]);
 
   const processFile = (selectedFile: File | undefined) => {
     setError(null);
@@ -99,7 +136,7 @@ const SplitPdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool, o
             await new Promise(resolve => setTimeout(resolve, i * 200));
             triggerDownload(new Blob([result.bytes], { type: 'application/pdf' }), result.filename);
         }
-        setSuccessMessage(`${results.length} file(s) have been successfully created and downloaded.`);
+        setSuccessMessage(`${results.length} file(s) have been successfully created and started downloading.`);
       }
 
     } catch (e: any) {
@@ -108,6 +145,14 @@ const SplitPdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool, o
     } finally {
       setIsProcessing(false);
     }
+  };
+  
+  const handleStartOver = () => {
+    setFile(null);
+    setSuccessMessage(null);
+    setError(null);
+    setPageRange('');
+    setSplitMode('extract');
   };
 
   return (
@@ -134,69 +179,90 @@ const SplitPdfPage: React.FC<{ tool: Tool; onGoBack: () => void; }> = ({ tool, o
                 <p className="mt-1 text-sm text-slate-500">This may take a few moments.</p>
             </div>
         )}
-        <div
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          className={`border-2 border-dashed rounded-xl p-8 text-center bg-[#F8FAFC] transition-colors ${isDraggingOver ? 'border-indigo-500 bg-indigo-50' : 'border-slate-300'}`}
-        >
-          {isDraggingOver ? (
-            <div className="flex flex-col items-center justify-center pointer-events-none">
-              <svg className="w-16 h-16 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-              </svg>
-              <p className="text-lg font-semibold text-indigo-600 mt-2">Drop file to upload</p>
+        {!successMessage ? (
+        <>
+            <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`border-2 border-dashed rounded-xl p-8 text-center bg-[#F8FAFC] transition-colors ${isDraggingOver ? 'border-indigo-500 bg-indigo-50' : 'border-slate-300'}`}
+            >
+            {isDraggingOver ? (
+                <div className="flex flex-col items-center justify-center pointer-events-none">
+                <svg className="w-16 h-16 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                </svg>
+                <p className="text-lg font-semibold text-indigo-600 mt-2">Drop file to upload</p>
+                </div>
+            ) : (
+                <>
+                <input type="file" accept=".pdf" onChange={handleFileChange} ref={fileInputRef} className="hidden" />
+                <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <p className="mt-2 text-sm text-slate-500">Drag & drop PDF file here</p>
+                <button onClick={() => fileInputRef.current?.click()} className="mt-4 px-8 py-3 bg-indigo-500 text-white text-base font-semibold rounded-lg shadow-md hover:bg-indigo-600 transition-colors">
+                    Select PDF file
+                </button>
+                {file && <p className="mt-4 font-medium text-slate-700">Selected: {file.name}</p>}
+                </>
+            )}
             </div>
-          ) : (
-            <>
-              <input type="file" accept=".pdf" onChange={handleFileChange} ref={fileInputRef} className="hidden" />
-              <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
-              <p className="mt-2 text-sm text-slate-500">Drag & drop PDF file here</p>
-              <button onClick={() => fileInputRef.current?.click()} className="mt-4 px-8 py-3 bg-indigo-500 text-white text-base font-semibold rounded-lg shadow-md hover:bg-indigo-600 transition-colors">
-                  Select PDF file
-              </button>
-              {file && <p className="mt-4 font-medium text-slate-700">Selected: {file.name}</p>}
-            </>
-          )}
-        </div>
 
-        {file && (
-          <div className="mt-8 bg-[#F8FAFC] p-6 rounded-lg shadow-md">
-            <h3 className="font-semibold text-lg">Split Options</h3>
-            <div className="mt-4 space-y-4">
-                <div className="flex items-center">
-                    <input id="extract-radio" type="radio" value="extract" name="split-mode" checked={splitMode === 'extract'} onChange={() => setSplitMode('extract')} className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500" />
-                    <label htmlFor="extract-radio" className="ml-3 block text-sm font-medium text-gray-700">Extract pages</label>
-                </div>
-                {splitMode === 'extract' && (
-                     <div className="pl-7">
-                        <input
-                            type="text"
-                            value={pageRange}
-                            onChange={(e) => setPageRange(e.target.value)}
-                            placeholder="e.g., 1-3, 5, 8"
-                            className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                        <p className="text-xs text-slate-500 mt-1">Enter page numbers, ranges (e.g., 2-5), or a mix. The tool will create one PDF with the extracted pages.</p>
+            {file && (
+            <div className="mt-8 bg-[#F8FAFC] p-6 rounded-lg shadow-md">
+                <h3 className="font-semibold text-lg">Split Options</h3>
+                <div className="mt-4 space-y-4">
+                    <div className="flex items-center">
+                        <input id="extract-radio" type="radio" value="extract" name="split-mode" checked={splitMode === 'extract'} onChange={() => setSplitMode('extract')} className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500" />
+                        <label htmlFor="extract-radio" className="ml-3 block text-sm font-medium text-gray-700">Extract pages</label>
                     </div>
-                )}
-                 <div className="flex items-center">
-                    <input id="all-radio" type="radio" value="all" name="split-mode" checked={splitMode === 'all'} onChange={() => setSplitMode('all')} className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500" />
-                    <label htmlFor="all-radio" className="ml-3 block text-sm font-medium text-gray-700">Split into single pages</label>
+                    {splitMode === 'extract' && (
+                        <div className="pl-7">
+                            <input
+                                type="text"
+                                value={pageRange}
+                                onChange={(e) => setPageRange(e.target.value)}
+                                placeholder="e.g., 1-3, 5, 8"
+                                className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                            />
+                            <p className="text-xs text-slate-500 mt-1">Enter page numbers, ranges (e.g., 2-5), or a mix. The tool will create one PDF with the extracted pages.</p>
+                        </div>
+                    )}
+                    <div className="flex items-center">
+                        <input id="all-radio" type="radio" value="all" name="split-mode" checked={splitMode === 'all'} onChange={() => setSplitMode('all')} className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500" />
+                        <label htmlFor="all-radio" className="ml-3 block text-sm font-medium text-gray-700">Split into single pages</label>
+                    </div>
+                    {splitMode === 'all' && <p className="text-xs text-slate-500 mt-1 pl-7">This will create a separate PDF file for every page in the document.</p>}
                 </div>
-                 {splitMode === 'all' && <p className="text-xs text-slate-500 mt-1 pl-7">This will create a separate PDF file for every page in the document.</p>}
+                <div className="mt-6 text-center">
+                <button onClick={handleSplit} disabled={isProcessing} className="w-full sm:w-auto px-12 py-3 bg-yellow-500 text-white font-bold text-lg rounded-lg shadow-lg hover:bg-yellow-600 transition-transform hover:scale-105 disabled:opacity-50">
+                    Split PDF
+                </button>
+                </div>
             </div>
-             <div className="mt-6 text-center">
-              <button onClick={handleSplit} disabled={isProcessing} className="w-full sm:w-auto px-12 py-3 bg-yellow-500 text-white font-bold text-lg rounded-lg shadow-lg hover:bg-yellow-600 transition-transform hover:scale-105 disabled:opacity-50">
-                Split PDF
-              </button>
+            )}
+            {error && <div className="mt-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-md">{error}</div>}
+        </>
+        ) : (
+            <div className="text-center p-8 bg-green-50 border border-green-200 rounded-xl">
+                <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                    <svg className="w-10 h-10 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+                <h2 className="text-2xl font-bold text-green-800 mt-4">Split Successful!</h2>
+                <p className="mt-2 text-green-600">{successMessage}</p>
+                <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
+                    <button onClick={handleStartOver} className="px-8 py-3 bg-yellow-500 text-white text-base font-semibold rounded-lg shadow-md hover:bg-yellow-600 transition-colors">
+                        Split Another PDF
+                    </button>
+                    <button onClick={onGoBack} className="px-8 py-3 bg-slate-200 text-slate-700 text-base font-semibold rounded-lg shadow-md hover:bg-slate-300 transition-colors">
+                        Back to Home
+                    </button>
+                </div>
             </div>
-          </div>
         )}
-        {error && <div className="mt-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-md">{error}</div>}
-        {successMessage && <div className="mt-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-md">{successMessage}</div>}
       </div>
     </div>
   );
